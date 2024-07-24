@@ -5,13 +5,14 @@
 /// Use of this source code is governed by MIT license that can be found in the LICENSE file.
 import 'dart:async';
 import 'dart:convert';
-import 'dart:js' as js;
+import 'dart:js_interop';
+import 'dart:js_interop_unsafe';
 import 'dart:typed_data';
 import 'dart:collection';
-import 'dart:html' as html;
 import 'package:meta/meta.dart';
 import 'package:collection/collection.dart';
 import 'package:synchronized/synchronized.dart';
+import 'package:web/web.dart' as web;
 
 import 'package:media_kit/src/player/platform_player.dart';
 
@@ -42,8 +43,8 @@ void webEnsureInitialized({String? libmpv}) {}
 class WebPlayer extends PlatformPlayer {
   /// {@macro web_player}
   WebPlayer({required super.configuration})
-      : id = js.context[kInstanceCount] ?? 0,
-        element = html.VideoElement() {
+      : id = (globalContext[kInstanceCount] as JSNumber?)?.toDartInt ?? 0,
+        element = web.HTMLVideoElement() {
     lock.synchronized(() async {
       element
         // Do not add autoplay=false attribute: https://stackoverflow.com/a/19664804/12825435
@@ -56,12 +57,17 @@ class WebPlayer extends PlatformPlayer {
         /* ..setAttribute('autoplay', 'false') */
         ..setAttribute('playsinline', 'true')
         ..pause();
+
       // Initialize or increment the instance count.
-      js.context[kInstanceCount] ??= 0;
-      js.context[kInstanceCount]++;
+      globalContext[kInstanceCount] ??= 0.toJS;
+      globalContext[kInstanceCount] =
+          (((globalContext[kInstanceCount] as JSNumber?)?.toDartInt ?? 0) + 1)
+              .toJS;
+
       // Store the [html.VideoElement] instance in global [js.context].
-      js.context[kInstances] ??= js.JsObject.jsify({});
-      js.context[kInstances][id] = element;
+      globalContext[kInstances] ??= {}.jsify();
+      (globalContext[kInstances] as JSObject)[id.toString()] = element;
+
       // --------------------------------------------------
       // Event streams handling:
       element.onPlay.listen((_) {
@@ -238,7 +244,7 @@ class WebPlayer extends PlatformPlayer {
           // PlayerStream.error
           final error = element.error!;
           if (!errorController.isClosed) {
-            errorController.addError(error.message ?? '');
+            errorController.addError(error.message);
           }
         });
       });
@@ -302,9 +308,7 @@ class WebPlayer extends PlatformPlayer {
         trackController.add(state.track);
       }
       state = state.copyWith(
-        track: state.track.copyWith(
-          audio: AudioTrack.no(),
-        ),
+        track: state.track.copyWith(audio: AudioTrack.no()),
       );
       if (!trackController.isClosed) {
         trackController.add(state.track);
@@ -325,8 +329,8 @@ class WebPlayer extends PlatformPlayer {
         ..load()
         ..remove();
 
-      // Remove the [html.VideoElement] instance from global [js.context].
-      js.context[kInstances].deleteProperty(id);
+      // Remove the [web.HTMLVideoElement] instance from global [js.context].
+      (globalContext.getProperty(kInstances.toJS) as JSObject).delete(id.toJS);
 
       await super.dispose();
     }
@@ -400,13 +404,15 @@ class WebPlayer extends PlatformPlayer {
       _loadSource(_playlist[_index]);
 
       if (play) {
-        element.play().catchError(
+        element.play().toDart.catchError(
           (error) {
             // PlayerStream.error
-            final e = error as html.DomException;
+            final e = error as web.DOMException;
             if (!errorController.isClosed) {
-              errorController.add(e.message ?? '');
+              errorController.add(e.message);
             }
+
+            return null;
           },
         );
       } else {
@@ -548,13 +554,15 @@ class WebPlayer extends PlatformPlayer {
       }
       await waitForPlayerInitialization;
       await waitForVideoControllerInitializationIfAttached;
-      element.play().catchError(
+      element.play().toDart.catchError(
         (error) {
           // PlayerStream.error
-          final e = error as html.DomException;
+          final e = error as web.DOMException;
           if (!errorController.isClosed) {
-            errorController.add(e.message ?? '');
+            errorController.add(e.message);
           }
+
+          return null;
         },
       );
     }
@@ -1229,9 +1237,17 @@ class WebPlayer extends PlatformPlayer {
       await waitForVideoControllerInitializationIfAttached;
 
       if (track.uri) {
-        element.children.removeWhere((e) => e is html.SourceElement);
+        final List<web.Element?> elements = [];
+        for (int i = 0; i < element.children.length; ++i) {
+          elements.add(element.children.item(i));
+        }
+        for (var e in elements.whereNotNull()) {
+          if (e.isA<web.HTMLSourceElement>()) {
+            e.remove();
+          }
+        }
 
-        final child = html.SourceElement();
+        final child = web.HTMLSourceElement();
         child.src = track.id;
         element.append(child);
 
@@ -1281,23 +1297,37 @@ class WebPlayer extends PlatformPlayer {
           uri = track.id;
         } else if (track.data) {
           // Create object URL from subtitle data.
-          final src = html.Url.createObjectUrlFromBlob(html.Blob([track.id]));
+          final src = web.URL.createObjectURL(
+            web.Blob(
+              [track.id.toJS].toJS,
+              web.BlobPropertyBag(type: 'text/plain', endings: 'native'),
+            ),
+          );
+
           // Revoke the object URL upon [dispose].
           release.add(() async {
-            html.Url.revokeObjectUrl(src);
+            web.URL.revokeObjectURL(src);
           });
           uri = src;
         } else {
           return;
         }
 
-        element.children.removeWhere((e) => e is html.TrackElement);
+        final List<web.Element?> elements = [];
+        for (int i = 0; i < element.children.length; ++i) {
+          elements.add(element.children.item(i));
+        }
+        for (var e in elements.whereNotNull()) {
+          if (e.isA<web.HTMLTrackElement>()) {
+            e.remove();
+          }
+        }
 
-        final child = html.TrackElement();
+        final child = web.HTMLTrackElement();
         child.src = uri;
         child.kind = 'subtitles';
-        child.label = track.title;
-        child.srclang = track.language;
+        child.label = track.title ?? '';
+        child.srclang = track.language ?? '';
         element.append(child);
 
         state = state.copyWith(track: state.track.copyWith(subtitle: track));
@@ -1311,35 +1341,38 @@ class WebPlayer extends PlatformPlayer {
           subtitleController.add(['', '']);
         }
 
-        final tracks = element.textTracks?.toList() ?? <html.TextTrack>[];
-        tracks.first.mode = 'hidden';
-        tracks.first.onCueChange.listen((_) {
-          try {
-            final data = tracks.first.activeCues?.map((e) {
-              final text = (e as dynamic).text as String;
-              return text
-                  .replaceAll(RegExp('<[^>]*>'), ' ')
-                  .replaceAll(RegExp('\\s+'), ' ')
-                  .trim();
-            }).toList();
-            if (data != null) {
-              final subtitle = ['', ''];
-              if (data.length == 1) {
-                subtitle[0] = data[0];
-              } else if (data.length == 2) {
-                subtitle[0] = data[0];
-                subtitle[1] = data.skip(1).join('\n');
-              }
-              state = state.copyWith(subtitle: subtitle);
-              if (!subtitleController.isClosed) {
-                subtitleController.add(subtitle);
-              }
-            }
-          } catch (exception, stacktrace) {
-            print(exception);
-            print(stacktrace);
-          }
-        });
+        throw UnsupportedError(
+          '[Player.setSubtitleTrack] is unsupported on web, because I dunno how to retrieve a single `TextTrack` from the `TextTrackList` object.',
+        );
+        // final tracks = element.textTracks.toList() ?? <web.TextTrack>[];
+        // tracks.first.mode = 'hidden';
+        // tracks.first.onCueChange.listen((_) {
+        //   try {
+        //     final data = tracks.first.activeCues?.map((e) {
+        //       final text = (e as dynamic).text as String;
+        //       return text
+        //           .replaceAll(RegExp('<[^>]*>'), ' ')
+        //           .replaceAll(RegExp('\\s+'), ' ')
+        //           .trim();
+        //     }).toList();
+        //     if (data != null) {
+        //       final subtitle = ['', ''];
+        //       if (data.length == 1) {
+        //         subtitle[0] = data[0];
+        //       } else if (data.length == 2) {
+        //         subtitle[0] = data[0];
+        //         subtitle[1] = data.skip(1).join('\n');
+        //       }
+        //       state = state.copyWith(subtitle: subtitle);
+        //       if (!subtitleController.isClosed) {
+        //         subtitleController.add(subtitle);
+        //       }
+        //     }
+        //   } catch (exception, stacktrace) {
+        //     print(exception);
+        //     print(stacktrace);
+        //   }
+        // });
       } else {
         throw UnsupportedError(
           '[Player.setSubtitleTrack] is only supported with [SubtitleTrack.uri] & [SubtitleTrack.data] on web',
@@ -1384,7 +1417,7 @@ class WebPlayer extends PlatformPlayer {
       try {
         // Kind of limited in usage:
         // https://stackoverflow.com/questions/35244215/html5-video-screenshot-via-canvas-using-cors
-        final canvas = html.CanvasElement();
+        final canvas = web.HTMLCanvasElement();
         canvas.width = element.videoWidth;
         canvas.height = element.videoHeight;
         final context = canvas.context2D;
@@ -1430,9 +1463,9 @@ class WebPlayer extends PlatformPlayer {
       }
     } catch (exception) {
       // PlayerStream.error
-      final e = exception as html.DomException;
+      final e = exception as web.DOMException;
       if (!errorController.isClosed) {
-        errorController.add(e.message ?? '');
+        errorController.add(e.message);
       }
     }
   }
@@ -1453,18 +1486,12 @@ class WebPlayer extends PlatformPlayer {
     // PlayerState.state.buffering & PlayerState.stream.buffering
 
     // A minimal quirk to match the NativePlayer behavior.
-    state = state.copyWith(
-      buffering: true,
-    );
+    state = state.copyWith(buffering: true);
     if (!bufferingController.isClosed) {
       bufferingController.add(true);
     }
 
-    state = state.copyWith(
-      playing: false,
-      completed: true,
-      buffering: false,
-    );
+    state = state.copyWith(playing: false, completed: true, buffering: false);
     if (!playingController.isClosed) {
       playingController.add(false);
     }
@@ -1548,8 +1575,8 @@ class WebPlayer extends PlatformPlayer {
   /// Unique handle of this [Player] instance.
   final int id;
 
-  /// [html.VideoElement] instance reference.
-  final html.VideoElement element;
+  /// [web.HTMLVideoElement] instance reference.
+  final web.HTMLVideoElement element;
 
   /// Whether the [Player] has been disposed.
   bool disposed = false;
@@ -1566,4 +1593,16 @@ class WebPlayer extends PlatformPlayer {
   /// Whether the [WebPlayer] is initialized for unit-testing.
   @visibleForTesting
   static bool test = false;
+}
+
+extension on web.HTMLCollection {
+  void clear() {
+    final List<web.Element?> elements = [];
+    for (int i = 0; i < length; ++i) {
+      elements.add(item(i));
+    }
+    for (var e in elements.whereNotNull()) {
+      e.remove();
+    }
+  }
 }

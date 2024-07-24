@@ -5,8 +5,9 @@
 /// Use of this source code is governed by MIT license that can be found in the LICENSE file.
 // ignore_for_file: avoid_web_libraries_in_flutter
 import 'dart:async';
-import 'dart:js' as js;
-import 'dart:html' as html;
+import 'dart:js_interop' as js;
+import 'dart:js_interop_unsafe';
+import 'package:web/web.dart' as web;
 
 import 'dart:ui_web';
 import 'package:flutter/rendering.dart';
@@ -48,8 +49,11 @@ class WebVideoController extends PlatformVideoController {
     // Register [_dispose] for execution upon [Player.dispose].
     player.platform?.release.add(controller._dispose);
 
-    // Retrieve the [html.VideoElement] instance from [js.context].
-    controller._element = js.context[_kInstances][handle];
+    // Retrieve the [web.HTMLVideoElement] instance from [js.context].
+    controller._element =
+        (js.globalContext.getProperty(_kInstances.toJS) as js.JSObject)
+            .getProperty(handle.toJS);
+
     // Register the [html.VideoElement] as platform view.
     platformViewRegistry.registerViewFactory(
       'com.alexmercerind.media_kit_video.$handle',
@@ -119,10 +123,10 @@ class WebVideoController extends PlatformVideoController {
     await _resizeStreamSubscription?.cancel();
   }
 
-  /// HTML [html.VideoElement] instance reference.
-  html.VideoElement? _element;
+  /// HTML [web.HTMLVideoElement] instance reference.
+  web.HTMLVideoElement? _element;
 
-  StreamSubscription<html.Event>? _resizeStreamSubscription;
+  StreamSubscription<web.Event>? _resizeStreamSubscription;
 
   /// JavaScript object attribute used to store various [VideoElement] instances in [js.context].
   static const _kInstances = '\$com.alexmercerind.media_kit.instances';

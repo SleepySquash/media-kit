@@ -4,8 +4,8 @@
 /// All rights reserved.
 /// Use of this source code is governed by MIT license that can be found in the LICENSE file.
 // ignore_for_file: avoid_web_libraries_in_flutter
-import 'dart:html';
 import 'dart:async';
+import 'dart:js_interop';
 import 'package:flutter/widgets.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
@@ -14,6 +14,63 @@ import 'package:media_kit_video/media_kit_video_controls/media_kit_video_control
 import 'package:media_kit_video/src/utils/dispose_safe_notifer.dart';
 
 import 'package:media_kit_video/src/utils/wakelock.dart';
+
+@JS('document.documentElement.requestFullscreen')
+external void _requestFullscreen();
+
+@JS('document.documentElement.requestFullscreen')
+external JSFunction? _requestFullscreenClosure;
+
+@JS('document.documentElement.mozRequestFullScreen')
+external void _mozRequestFullScreen();
+
+@JS('document.documentElement.mozRequestFullScreen')
+external JSFunction? _mozRequestFullScreenClosure;
+
+@JS('document.documentElement.webkitRequestFullScreen')
+external void _webkitRequestFullScreen();
+
+@JS('document.documentElement.webkitRequestFullScreen')
+external JSFunction? _webkitRequestFullScreenClosure;
+
+@JS('document.documentElement.msRequestFullscreen')
+external void _msRequestFullscreen();
+
+@JS('document.documentElement.msRequestFullscreen')
+external JSFunction? _msRequestFullscreenClosure;
+
+@JS('document.exitFullscreen')
+external void _exitFullscreen();
+
+@JS('document.exitFullscreen')
+external JSFunction? _exitFullscreenClosure;
+
+@JS('document.mozCancelFullScreen')
+external void _mozCancelFullScreen();
+
+@JS('document.mozCancelFullScreen')
+external JSFunction? _mozCancelFullScreenClosure;
+
+@JS('document.webkitCancelFullScreen')
+external void _webkitCancelFullScreen();
+
+@JS('document.webkitCancelFullScreen')
+external JSFunction? _webkitCancelFullScreenClosure;
+
+@JS('document.msExitFullscreen')
+external void _msExitFullscreen();
+
+@JS('document.msExitFullscreen')
+external JSFunction? _msExitFullscreenClosure;
+
+@JS('document.fullscreenElement')
+external JSAny? _fullscreenElement;
+
+@JS('document.webkitFullscreenElement')
+external JSAny? _webkitFullscreenElement;
+
+@JS('document.msFullscreenElement')
+external JSAny? _msFullscreenElement;
 
 /// {@template video}
 ///
@@ -410,7 +467,15 @@ class VideoState extends State<Video> with WidgetsBindingObserver {
 /// Makes the native window enter fullscreen.
 Future<void> defaultEnterNativeFullscreen() async {
   try {
-    await document.documentElement?.requestFullscreen();
+    if (_requestFullscreenClosure != null) {
+      _requestFullscreen();
+    } else if (_mozRequestFullScreenClosure != null) {
+      _mozRequestFullScreen();
+    } else if (_webkitRequestFullScreenClosure != null) {
+      _webkitRequestFullScreen();
+    } else if (_msRequestFullscreenClosure != null) {
+      _msRequestFullscreen();
+    }
   } catch (exception, stacktrace) {
     debugPrint(exception.toString());
     debugPrint(stacktrace.toString());
@@ -420,7 +485,15 @@ Future<void> defaultEnterNativeFullscreen() async {
 /// Makes the native window exit fullscreen.
 Future<void> defaultExitNativeFullscreen() async {
   try {
-    document.exitFullscreen();
+    if (_exitFullscreenClosure != null) {
+      _exitFullscreen();
+    } else if (_mozCancelFullScreenClosure != null) {
+      _mozCancelFullScreen();
+    } else if (_webkitCancelFullScreenClosure != null) {
+      _webkitCancelFullScreen();
+    } else if (_msExitFullscreenClosure != null) {
+      _msExitFullscreen();
+    }
   } catch (exception, stacktrace) {
     debugPrint(exception.toString());
     debugPrint(stacktrace.toString());

@@ -4,8 +4,8 @@
 /// All rights reserved.
 /// Use of this source code is governed by MIT license that can be found in the LICENSE file.
 import 'dart:async';
-import 'dart:html' as html;
-import 'package:js/js.dart' as js;
+import 'package:web/web.dart' as web;
+import 'dart:js_interop' as js;
 import 'package:synchronized/synchronized.dart';
 
 // --------------------------------------------------
@@ -26,7 +26,7 @@ abstract class HLS {
       }
       final completer = Completer();
       try {
-        final script = html.ScriptElement()
+        final script = web.HTMLScriptElement()
           ..async = true
           ..charset = 'utf-8'
           ..type = 'text/javascript'
@@ -43,10 +43,10 @@ abstract class HLS {
           }
         });
 
-        html.HeadElement? head = html.document.head;
+        web.HTMLHeadElement? head = web.document.head;
         if (head == null) {
-          head = html.HeadElement();
-          html.document.append(head);
+          head = web.HTMLHeadElement();
+          web.document.append(head);
         }
         head.append(script);
       } catch (_) {
@@ -86,7 +86,7 @@ class Hls {
 
 extension ExtensionHls on Hls {
   external void loadSource(String src);
-  external void attachMedia(html.VideoElement video);
+  external void attachMedia(web.HTMLVideoElement video);
 }
 
 // --------------------------------------------------
