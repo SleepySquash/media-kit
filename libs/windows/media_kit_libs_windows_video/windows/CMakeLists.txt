@@ -103,7 +103,7 @@ endif()
 set(ANGLE "ANGLE.7z")
 
 # Download URL & MD5 hash of the ANGLE archive.
-set(ANGLE_URL "https://github.com/alexmercerind/flutter-windows-ANGLE-OpenGL-ES/releases/download/v1.0.0/ANGLE.7z")
+set(ANGLE_URL "https://github.com/SleepySquash/media-kit/releases/download/v1.0.0-angle/ANGLE.7z")
 set(ANGLE_MD5 "e5be38d0e1c5cbe5f70e53701ea8b6c9")
 
 # Download location of the ANGLE archive.
