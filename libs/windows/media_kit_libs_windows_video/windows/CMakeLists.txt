@@ -103,7 +103,7 @@ endif()
 set(ANGLE "ANGLE.7z")
 
 # Download URL & MD5 hash of the ANGLE archive.
-set(ANGLE_URL "https://github.com/SleepySquash/media-kit/releases/download/v1.0.0-angle/ANGLE.7z")
+set(ANGLE_URL "https://github.com/SleepySquash/media-kit/releases/download/v1.0.1-angle/ANGLE.7z")
 set(ANGLE_MD5 "213fc18df310e2d62b5ab44b71a85e53")
 
 # Download location of the ANGLE archive.
