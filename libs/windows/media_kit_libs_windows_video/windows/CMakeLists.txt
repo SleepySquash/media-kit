@@ -104,7 +104,7 @@ set(ANGLE "ANGLE.7z")
 
 # Download URL & MD5 hash of the ANGLE archive.
 set(ANGLE_URL "https://github.com/SleepySquash/media-kit/releases/download/v1.0.1-angle/ANGLE.7z")
-set(ANGLE_MD5 "213fc18df310e2d62b5ab44b71a85e53")
+set(ANGLE_MD5 "39c8a3dd61e1b367c2963b503e8835b7")
 
 # Download location of the ANGLE archive.
 set(ANGLE_ARCHIVE "${CMAKE_BINARY_DIR}/${ANGLE}")
